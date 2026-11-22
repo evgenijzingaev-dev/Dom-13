@@ -364,6 +364,22 @@ const clueConnections=[
   return activeConnections().find(link=>!state.insights.includes(link.key)&&link.pair.includes(testimony.id)&&link.pair.some(k=>k!==testimony.id&&state.clues.includes(k)))||null;
  }
  // Earlier public accusations have consequences beyond the immediate tension meter.
+// A wrongly accused neighbour remembers the verdict in later chapters.
+// Read from existing v4 history; older saves simply have no accusedResident field.
+function accusationMemory(id){
+ const history=Array.isArray(state.history)?state.history:[];
+ const latest=[...history].reverse().find(h=>h&&Number.isInteger(h.chapter)&&h.chapter<state.chapter&&h.accusedResident===id);
+ if(!latest)return '';
+ const words={
+  '101':'«Ты назвал меня виноватой перед всем домом. Давай сначала проверим записи в журнале», — говорит Тамара.',
+  '102':'«После твоих обвинений соседи стали проверять каждую мою доставку. Я готов помочь, но больше не делай выводов без улик», — говорит Олег.',
+  '301':'«Моё видео превратили в повод обвинить меня. Сначала разберёмся, что на нём видно», — говорит Кира.',
+  '302':'«Меня уже выставили шпионом. Прежде чем снова цитировать мой эфир, послушай запись целиком», — просит Лев.',
+  '201':'«В прошлый раз мне не поверили. Теперь я хочу, чтобы ты проверил услышанное», — говорит Майя.',
+  '202':'«Из-за обвинений мне пришлось объясняться перед соседями. Давай начнём со схемы, а не с догадок», — говорит Виктор.'
+ };
+ return words[id]||'';
+}
 function interviewAftermath(id){
  const previous=(Array.isArray(state.choices)?state.choices:[]).filter(c=>c&&Number.isInteger(c.chapter)&&c.chapter<state.chapter&&c.action==='expose');
  if(!previous.length)return '';
@@ -398,7 +414,7 @@ function showInterview(id){
    '102':'Олег ставит у порога сумку курьера. Похоже, он сильно устал.'
   };
   const memory=incidentMemory(id);
-  const aftermath=interviewAftermath(id);
+  const aftermath=accusationMemory(id)||interviewAftermath(id);
   openModal(`${heading(residentArt(p),'Разговор: '+p.name,'КВ. '+p.id+' · ДЕЛО '+(state.chapter+1))}<div class="interview-scene"><span class="eyebrow">СВИДЕТЕЛЬ · ДОВЕРИЕ ${trust>0?'+':''}${trust}</span><p>${intro[id]}</p><div class="interview-quote">${aftermath?aftermath+" ": ""}${memory?memory:"«Ты тоже пытаешься понять, что случилось? Спрашивай, только не записывай меня без разрешения»."}</div></div><p class="sheet-copy muted">${wary?'Жилец не доверяет тебе и пока не готов делиться показаниями. Спокойный разговор или помощь восстановят контакт.':'Манера разговора изменит отношения с жильцом. Прямой вопрос укажет новый след; предъявление противоречия связывает уже найденные факты.'}</p><div class="actions">${actionButton('Выслушать спокойно','Снизить тревогу и укрепить доверие','gentle','−1 👁',false,'primary')}${actionButton('Задать прямой вопрос','Найти следующего свидетеля, но усилить напряжение','direct','−1 👁')}${actionButton('Предъявить противоречие',canChallenge?'Сопоставить показание с независимым свидетельством':'Сначала запиши показания и найди независимую улику','challenge','−1 👁',!canChallenge)}${actionButton('← Вернуться к квартире','Не тратить время','back','НАЗАД')}</div>`);
   $('sheet').querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{
    if(b.dataset.action==='back')showPerson(id);
@@ -465,7 +481,7 @@ function showPerson(id){if(state.pendingEvent){showEvent();return}const p=reside
  const cautious=here&&witnessNeedsReassurance(id);
  const observeDesc=here?'Присмотреться к окну и коридору':corridorClue(p,'observe')?'Проверить следы у доставки и служебных дверей':'Изучить дверь, коврик и следы рядом';
  const listenDesc=here?'Разобрать звуки из квартиры':'Послушать, что слышно за дверью и в подъезде';
- const talkDesc=here?(cautious?'После прошлой огласки сначала выслушай спокойно':'Задать вопрос жильцу'):'В квартире пусто — поговорить не с кем';
+ const talkDesc=here?(accusationMemory(id)?'Обсудить прошлое обвинение и проверить факты':cautious?'После прошлой огласки сначала выслушай спокойно':'Задать вопрос жильцу'):'В квартире пусто — поговорить не с кем';
  const helpDesc=helped?'Сегодня уже помогал':here?'Повысить доверие и снизить напряжение':'Помочь получится только когда жилец вернётся';
  openModal(`${heading(residentArt(p),p.name,`Кв. ${p.id} · ${p.role}`)}<p class="sheet-copy">${p.habit}</p><div class="pill">${here?'● ПРИСУТСТВУЕТ':'○ КВАРТИРА ПУСТА'}</div><div class="pill">${p.trait}</div><div class="pill">💛 Доверие: ${tr>0?'+':''}${tr}</div><div class="actions" style="margin-top:12px">${actionButton(observeTitle,observeDesc,'observe','−1 👁',!can)}${actionButton('👂 Прислушаться',listenDesc,'listen','−1 👁',!can)}${actionButton('🚪 Поговорить',talkDesc,'knock','−1 👁',!can||!here)}${actionButton('🤝 Помочь',helpDesc,'help','−1 👁',!can||!here||helped)}</div><p class="sheet-copy muted">${!here?'Если жильца нет дома, можно искать следы и слушать подъезд, но не разговаривать с пустой квартирой.':'Помощь укрепляет доверие на всю кампанию.'}</p>`);
  $('sheet').querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>b.dataset.action==='knock'?showInterview(id):act(id,b.dataset.action)))}

@@ -460,6 +460,8 @@ function tick(){state.hour++;
 function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();return}if(state.closed||state.focus<1)return;const p=residents.find(r=>r.id===id);if(!p)return;const here=home(p);if((type==='knock'||type==='help')&&!here)return;const key=`${state.chapter}-${state.day}-${id}`;if(type==='help'&&state.helped[key])return;
  const refused=type==='knock'&&(state.trust[id]||0)<=-2&&approach!=='gentle';
  if(type==='knock'&&approach==='challenge'&&!availableConfrontation(id))return;
+ // The selected interviewing style changes the words the player hears.
+ const interviewTone=approach==='direct'?'Ты задаёшь вопрос без предисловий. Собеседник настораживается, но отвечает: ':approach==='challenge'?'Ты показываешь противоречащую запись. После паузы собеседник уточняет: ':'Ты даёшь собеседнику время собраться с мыслями. Он рассказывает: ';
  state.focus--;state.actions++;let icon={observe:'👀',listen:'👂',knock:'🚪',help:'🤝'}[type];
  const genericHome={
   observe:[`${p.name}: за стеклом на миг появляется силуэт, затем шторы закрываются. Это наблюдение, а не доказательство.`,`У окна квартиры ${p.id} горит свет. Пока нельзя сказать, связано ли это с расследованием.`],
@@ -501,13 +503,14 @@ function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();retur
  if(type==='listen')state.tension=clamp(state.tension+3);
  if(type==='observe')state.tension=clamp(state.tension+1);
  const match=isClueAccessible(p,type)&&!refused?getClues().find(k=>k.resident===id&&k.action===type&&!state.clues.includes(k.id)):null;
+ if(type==='knock'&&!refused)result=`Беседа · ${p.name} / кв. ${p.id}. ${interviewTone}${interviews[id][state.chapter]}`;
  if(refused)result=`Беседа · ${p.name} / кв. ${p.id}. «После обвинений я пока не готов делиться записями. Сначала докажи, что тебе можно доверять».`;
  if(match){
   state.clues.push(match.id);
   // The clue is explicitly tied to the apartment selected by the player.
   const evidenceText=!here&&corridorClue(p,type)?corridorFindings[match.id]:match.body;
    state.clueNotes[match.id]=evidenceText;
-  result=`${!here&&corridorClue(p,type)?'Осмотр общего коридора у кв. '+p.id:type==='knock'?'Беседа · '+p.name+' / кв. '+p.id:type==='listen'?'Прослушивание · '+p.name+' / кв. '+p.id:'Осмотр · '+p.name+' / кв. '+p.id}. ${type==='knock'?interviews[id][state.chapter]+' ':''}Улика «${match.title}»: ${evidenceText}`;
+  result=`${!here&&corridorClue(p,type)?'Осмотр общего коридора у кв. '+p.id:type==='knock'?'Беседа · '+p.name+' / кв. '+p.id:type==='listen'?'Прослушивание · '+p.name+' / кв. '+p.id:'Осмотр · '+p.name+' / кв. '+p.id}. ${type==='knock'?interviewTone+interviews[id][state.chapter]+' ':''}Улика «${match.title}»: ${evidenceText}`;
   icon='🔎';
  }
  if(type==='knock'&&!match&&!refused&&spokenToday(id)>1){

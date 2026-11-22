@@ -373,6 +373,14 @@ function interviewAftermath(id){
  if(id==='101')return '«Слухи из прошлого дела до сих пор обсуждают у лифта. Не повторяй обвинений без доказательств», — просит Тамара.';
  return latest.chapter===state.chapter-1?'«После прошлого скандала соседи стали осторожнее с показаниями», — замечает жилец.':'';
 }
+// Public accusations make witnesses with personal recordings cautious until reassured.
+// Existing v4 interviewHistory is reused; no save-schema migration is required.
+function witnessNeedsReassurance(id){
+ if(id!=='302'&&id!=='301')return false;
+ const accused=Array.isArray(state.choices)&&state.choices.some(c=>c&&Number.isInteger(c.chapter)&&c.chapter<state.chapter&&c.action==='expose');
+ if(!accused)return false;
+ return !(Array.isArray(state.interviewHistory)&&state.interviewHistory.some(h=>h&&h.chapter===state.chapter&&h.resident===id&&h.approach==='gentle'));
+}
 function showInterview(id){
   if(state.pendingEvent){showEvent();return}
   const p=residents.find(r=>r.id===id);
@@ -454,9 +462,10 @@ function chapterEcho(){
 
 function showPerson(id){if(state.pendingEvent){showEvent();return}const p=residents.find(r=>r.id===id);if(!p)return;const here=home(p),can=state.focus>0&&!state.closed;const helped=!!state.helped[`${state.chapter}-${state.day}-${id}`],tr=state.trust[id]||0;
  const observeTitle=here?'👀 Наблюдать':corridorClue(p,'observe')?'🔎 Осмотреть общий коридор':'🚪 Осмотреть дверь';
+ const cautious=here&&witnessNeedsReassurance(id);
  const observeDesc=here?'Присмотреться к окну и коридору':corridorClue(p,'observe')?'Проверить следы у доставки и служебных дверей':'Изучить дверь, коврик и следы рядом';
  const listenDesc=here?'Разобрать звуки из квартиры':'Послушать, что слышно за дверью и в подъезде';
- const talkDesc=here?'Задать вопрос жильцу':'В квартире пусто — поговорить не с кем';
+ const talkDesc=here?(cautious?'После прошлой огласки сначала выслушай спокойно':'Задать вопрос жильцу'):'В квартире пусто — поговорить не с кем';
  const helpDesc=helped?'Сегодня уже помогал':here?'Повысить доверие и снизить напряжение':'Помочь получится только когда жилец вернётся';
  openModal(`${heading(residentArt(p),p.name,`Кв. ${p.id} · ${p.role}`)}<p class="sheet-copy">${p.habit}</p><div class="pill">${here?'● ПРИСУТСТВУЕТ':'○ КВАРТИРА ПУСТА'}</div><div class="pill">${p.trait}</div><div class="pill">💛 Доверие: ${tr>0?'+':''}${tr}</div><div class="actions" style="margin-top:12px">${actionButton(observeTitle,observeDesc,'observe','−1 👁',!can)}${actionButton('👂 Прислушаться',listenDesc,'listen','−1 👁',!can)}${actionButton('🚪 Поговорить',talkDesc,'knock','−1 👁',!can||!here)}${actionButton('🤝 Помочь',helpDesc,'help','−1 👁',!can||!here||helped)}</div><p class="sheet-copy muted">${!here?'Если жильца нет дома, можно искать следы и слушать подъезд, но не разговаривать с пустой квартирой.':'Помощь укрепляет доверие на всю кампанию.'}</p>`);
  $('sheet').querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>b.dataset.action==='knock'?showInterview(id):act(id,b.dataset.action)))}
@@ -469,6 +478,7 @@ function tick(){state.hour++;
   if(state.day>3){finish('timeout');return}}
  lifeScene();if(state.tension>=100)finish('panic')}
 function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();return}if(state.closed||state.focus<1)return;const p=residents.find(r=>r.id===id);if(!p)return;const here=home(p);if((type==='knock'||type==='help')&&!here)return;const key=`${state.chapter}-${state.day}-${id}`;if(type==='help'&&state.helped[key])return;
+ const needsReassurance=witnessNeedsReassurance(id);
  const refused=type==='knock'&&(state.trust[id]||0)<=-2&&approach!=='gentle';
  if(type==='knock'&&approach==='challenge'&&!availableConfrontation(id))return;
  // The selected interviewing style changes the words the player hears.
@@ -513,9 +523,15 @@ function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();retur
  }
  if(type==='listen')state.tension=clamp(state.tension+3);
  if(type==='observe')state.tension=clamp(state.tension+1);
- const match=isClueAccessible(p,type)&&!refused?getClues().find(k=>k.resident===id&&k.action===type&&!state.clues.includes(k.id)):null;
+ const match=isClueAccessible(p,type)&&!refused&&!needsReassurance?getClues().find(k=>k.resident===id&&k.action===type&&!state.clues.includes(k.id)):null;
  if(type==='knock'&&!refused)result=`Беседа · ${p.name} / кв. ${p.id}. ${interviewTone}${interviews[id][state.chapter]}`;
  if(refused)result=`Беседа · ${p.name} / кв. ${p.id}. «После обвинений я пока не готов делиться записями. Сначала докажи, что тебе можно доверять».`;
+ if(type==='knock'&&needsReassurance&&!refused&&approach==='gentle'){
+  result='Беседа · '+p.name+' / кв. '+p.id+'. '+(id==='302'?'Лев выключает микрофон: «После прошлой огласки я не хочу отдавать запись наспех. Спасибо, что сначала выслушал меня. Теперь можем проверить её вместе».':'Кира убирает телефон: «Прошлый раз кадры разошлись без объяснений. Спасибо, что не требуешь публикации. Теперь покажу, что сняла».');
+ }
+ if(needsReassurance&&type!=='knock'){
+  result+=' Личную запись жилец пока не доверил тебе. Сначала поговори с ним спокойно.';
+ }
  if(match){
   state.clues.push(match.id);
   // The clue is explicitly tied to the apartment selected by the player.

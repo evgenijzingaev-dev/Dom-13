@@ -363,7 +363,17 @@ const clueConnections=[
   if(!testimony||!state.clues.includes(testimony.id))return null;
   return activeConnections().find(link=>!state.insights.includes(link.key)&&link.pair.includes(testimony.id)&&link.pair.some(k=>k!==testimony.id&&state.clues.includes(k)))||null;
  }
- function showInterview(id){
+ // Earlier public accusations have consequences beyond the immediate tension meter.
+function interviewAftermath(id){
+ const previous=(Array.isArray(state.choices)?state.choices:[]).filter(c=>c&&Number.isInteger(c.chapter)&&c.chapter<state.chapter&&c.action==='expose');
+ if(!previous.length)return '';
+ const latest=previous[previous.length-1];
+ if(id==='302')return '«После той публикации в домовом чате мои записи разошлись без контекста. Сначала проверим факты», — предупреждает Лев.';
+ if(id==='301')return '«После прошлой огласки я больше не выкладываю кадры без согласия соседей», — говорит Кира.';
+ if(id==='101')return '«Слухи из прошлого дела до сих пор обсуждают у лифта. Не повторяй обвинений без доказательств», — просит Тамара.';
+ return latest.chapter===state.chapter-1?'«После прошлого скандала соседи стали осторожнее с показаниями», — замечает жилец.':'';
+}
+function showInterview(id){
   if(state.pendingEvent){showEvent();return}
   const p=residents.find(r=>r.id===id);
   if(!p||!home(p)||state.focus<1||state.closed){if(p)showPerson(p.id);return}
@@ -380,7 +390,8 @@ const clueConnections=[
    '102':'Олег ставит у порога сумку курьера. Похоже, он сильно устал.'
   };
   const memory=incidentMemory(id);
-  openModal(`${heading(residentArt(p),'Разговор: '+p.name,'КВ. '+p.id+' · ДЕЛО '+(state.chapter+1))}<div class="interview-scene"><span class="eyebrow">СВИДЕТЕЛЬ · ДОВЕРИЕ ${trust>0?'+':''}${trust}</span><p>${intro[id]}</p><div class="interview-quote">${memory?memory:"«Ты тоже пытаешься понять, что случилось? Спрашивай, только не записывай меня без разрешения»."}</div></div><p class="sheet-copy muted">${wary?'Жилец не доверяет тебе и пока не готов делиться показаниями. Спокойный разговор или помощь восстановят контакт.':'Манера разговора изменит отношения с жильцом. Прямой вопрос укажет новый след; предъявление противоречия связывает уже найденные факты.'}</p><div class="actions">${actionButton('Выслушать спокойно','Снизить тревогу и укрепить доверие','gentle','−1 👁',false,'primary')}${actionButton('Задать прямой вопрос','Найти следующего свидетеля, но усилить напряжение','direct','−1 👁')}${actionButton('Предъявить противоречие',canChallenge?'Сопоставить показание с независимым свидетельством':'Сначала запиши показания и найди независимую улику','challenge','−1 👁',!canChallenge)}${actionButton('← Вернуться к квартире','Не тратить время','back','НАЗАД')}</div>`);
+  const aftermath=interviewAftermath(id);
+  openModal(`${heading(residentArt(p),'Разговор: '+p.name,'КВ. '+p.id+' · ДЕЛО '+(state.chapter+1))}<div class="interview-scene"><span class="eyebrow">СВИДЕТЕЛЬ · ДОВЕРИЕ ${trust>0?'+':''}${trust}</span><p>${intro[id]}</p><div class="interview-quote">${aftermath?aftermath+" ": ""}${memory?memory:"«Ты тоже пытаешься понять, что случилось? Спрашивай, только не записывай меня без разрешения»."}</div></div><p class="sheet-copy muted">${wary?'Жилец не доверяет тебе и пока не готов делиться показаниями. Спокойный разговор или помощь восстановят контакт.':'Манера разговора изменит отношения с жильцом. Прямой вопрос укажет новый след; предъявление противоречия связывает уже найденные факты.'}</p><div class="actions">${actionButton('Выслушать спокойно','Снизить тревогу и укрепить доверие','gentle','−1 👁',false,'primary')}${actionButton('Задать прямой вопрос','Найти следующего свидетеля, но усилить напряжение','direct','−1 👁')}${actionButton('Предъявить противоречие',canChallenge?'Сопоставить показание с независимым свидетельством':'Сначала запиши показания и найди независимую улику','challenge','−1 👁',!canChallenge)}${actionButton('← Вернуться к квартире','Не тратить время','back','НАЗАД')}</div>`);
   $('sheet').querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{
    if(b.dataset.action==='back')showPerson(id);
    else act(id,'knock',b.dataset.action);

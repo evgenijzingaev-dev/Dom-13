@@ -38,7 +38,7 @@ test('legacy v4 saves without new fields remain valid',()=>{
 test('actual clue assignment requires accessible witness and resolved distrust',()=>{
  const expression=fragment('const match=isClueAccessible(p,type)&&!refused&&!needsReassurance?',";\n if(type==='knock'&&!refused)");
  for(const [guard,expected] of [[true,null],[false,'hum13']]){
-  const context={p:{id:'302'},type:'listen',refused:false,needsReassurance:guard,state:{clues:[]},isClueAccessible:()=>true,getClues:()=>[{id:'hum13',resident:'302',action:'listen'}]};
+  const context={id:'302',p:{id:'302'},type:'listen',refused:false,needsReassurance:guard,state:{clues:[]},isClueAccessible:()=>true,getClues:()=>[{id:'hum13',resident:'302',action:'listen'}]};
   vm.createContext(context);vm.runInContext(expression+';this.clue=match;',context);
   assert.equal(context.clue?.id??null,expected);
  }

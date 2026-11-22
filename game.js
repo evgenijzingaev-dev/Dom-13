@@ -97,7 +97,15 @@ let toastTimer, audio, rainLoop, rainGain;
 const modal=$('modal');
 const current=()=>cases[state.chapter];
 const getClues=()=>current().clues.map(c=>({id:c[0],resident:c[1],action:c[2],title:c[3],body:c[4]}));
-const home=p=>!!p&&p.home(state.hour);
+// The residents' routines vary across nights; availability is always checked at action time.
+const home=p=>{
+ if(!p||!p.home(state.hour))return false;
+ // After the first blackout, Lev checks his recording equipment outside the building.
+ if(p.id==='302'&&state.day===2&&state.hour===19)return false;
+ // Oleg's delivery shift runs late on the second night.
+ if(p.id==='102'&&state.day===2&&state.hour===22)return false;
+ return true;
+};
 // Clues left in the shared corridor are discoverable without entering a private flat.
 // Only Oleg's physical traces are public; personal testimony and recordings require presence.
 const corridorClue=(p,type)=>p.id==='102'&&type==='observe';
@@ -468,6 +476,12 @@ function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();retur
   '101':{observe:'Квартира Тамары закрыта; у двери аккуратно сложены газеты.',listen:'Из квартиры Тамары не слышно голосов. По лестнице проходят соседи.'},
   '102':{observe:'Олег ещё не вернулся. В общем коридоре видны следы доставки, но это не его показания.',listen:'За дверью Олега тихо. На лестнице слышно, как останавливается лифт.'}
  };
+ if(!here&&id==='302'&&state.day===2&&state.hour===19){
+  awayDetails[id]={observe:'Лев оставил на двери записку: «Проверяю оборудование после сбоя. Вернусь к 20:00».',listen:'За дверью Льва тишина. Его микрофон и запись сейчас недоступны.'};
+ }
+ if(!here&&id==='102'&&state.day===2&&state.hour===22){
+  awayDetails[id]={observe:'У двери Олега ещё нет сумки курьера: задержался на доставке, вернётся после 23:00.',listen:'Квартира Олега пуста. Внизу гудит подъехавший лифт.'};
+ }
  const genericAway={observe:[awayDetails[id].observe],listen:[awayDetails[id].listen]};
  let result=(here?genericHome[type]:genericAway[type])[ (state.actions+Number(id)) % (here?genericHome[type]:genericAway[type]).length ];
  if(type==='help'){state.helped[key]=true;state.kindness++;state.trust[id]=clamp((state.trust[id]||0)+2,-2,4);state.tension=clamp(state.tension-11);

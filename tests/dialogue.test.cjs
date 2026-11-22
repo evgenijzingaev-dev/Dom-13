@@ -15,7 +15,7 @@ function extract(start,end){
 test('Leo speaks his own case-specific line when a clue is found',()=>{
  const statement=extract('  result=`\u0024{!here&&corridorClue(p,type)?',";\n  icon='🔎';")+';';
  const context={here:true,corridorClue:()=>false,p:{id:'302'},type:'knock',id:'302',state:{chapter:0},
- interviews:{'302':['Лев снимает наушники и предлагает послушать запись']},
+ interviews:{'302':['Лев снимает наушники и предлагает послушать запись']},interviewTone:'Ты выслушиваешь Льва. ',
  match:{title:'Гул за стеной'},evidenceText:'На записи слышен гул'};
  vm.createContext(context);
  vm.runInContext(statement,context);
@@ -67,5 +67,15 @@ test('dialogue and help use the same presence guard as the schedule',()=>{
   vm.runInContext(fragment,context);
   const outcome=vm.runInContext('(function(){'+guard+'return "allowed"})()',context);
   assert.equal(outcome,undefined);
+ }
+});
+
+// These assertions execute the exact tone selection expression used in act().
+test('interview style changes the spoken testimony without replacing Leo with another witness',()=>{
+ const tone=extract('const interviewTone=', ';\n state.focus--');
+ for(const [approach,expected] of [['gentle','время собраться'],['direct','без предисловий'],['challenge','противоречащую запись']]){
+  const context={approach};vm.createContext(context);
+  vm.runInContext(tone+';this.spoken=interviewTone;',context);
+  assert.match(context.spoken,new RegExp(expected));
  }
 });

@@ -493,7 +493,7 @@ function act(id,type,approach='gentle'){if(state.pendingEvent){showEvent();retur
   // The clue is explicitly tied to the apartment selected by the player.
   const evidenceText=!here&&corridorClue(p,type)?corridorFindings[match.id]:match.body;
    state.clueNotes[match.id]=evidenceText;
-  result=`${!here&&corridorClue(p,type)?'Осмотр общего коридора у кв. '+p.id:type==='knock'?'Беседа · '+p.name+' / кв. '+p.id:type==='listen'?'Прослушивание · '+p.name+' / кв. '+p.id:'Осмотр · '+p.name+' / кв. '+p.id}. Улика «${match.title}»: ${evidenceText}`;
+  result=`${!here&&corridorClue(p,type)?'Осмотр общего коридора у кв. '+p.id:type==='knock'?'Беседа · '+p.name+' / кв. '+p.id:type==='listen'?'Прослушивание · '+p.name+' / кв. '+p.id:'Осмотр · '+p.name+' / кв. '+p.id}. ${type==='knock'?interviews[id][state.chapter]+' ':''}Улика «${match.title}»: ${evidenceText}`;
   icon='🔎';
  }
  if(type==='knock'&&!match&&!refused&&spokenToday(id)>1){

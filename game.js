@@ -673,15 +673,37 @@ function showEvidenceConfirmation(guess,evidence){const c=current(),g=c.guesses.
  $('sheet').querySelector('[data-action="confirm"]').addEventListener('click',()=>{finish(guess,evidence);closeModal();showEnding()});
  $('sheet').querySelector('[data-action="back"]').addEventListener('click',()=>showEvidenceChoice(guess));
 }
+// A false verdict damages a specific neighbour's reputation, not just the score.
+// This is derived from the verdict; older v4 histories without these fields still load.
+function verdictFallout(chapter,guess){
+ const targets=[
+  {miner:'202',search:'102'},
+  {theft:'102',prank:'301'},
+  {spies:'302',ghost:null},
+  {threat:'101',content:'301'},
+  {gang:'102',portal:null}
+ ];
+ const id=targets[chapter]?.[guess];
+ if(!id)return null;
+ return {resident:id,trustLoss:1,stress:8};
+}
 function finish(ending,evidenceId=null){if(state.closed)return;const c=current();state.closed=true;state.pendingEvent=null;state.ending=ending;const win=ending===c.correct,supported=win&&!!evidenceId&&keyEvidence[state.chapter].includes(evidenceId),brilliant=win&&supported&&state.clues.length>=5&&state.tension<=55&&state.kindness>=1;
+ const fallout=!win?verdictFallout(state.chapter,ending):null;
+ if(fallout){
+  state.trust[fallout.resident]=clamp((state.trust[fallout.resident]||0)-fallout.trustLoss,-2,4);
+  state.tension=clamp(state.tension+fallout.stress);
+  const affected=residents.find(p=>p.id===fallout.resident);
+  addLog('Ложное обвинение задело '+affected.name+': доверие снизилось, тревога в доме выросла.','⚠️','action');
+ }
  const earned=Math.max(0,state.clues.length*70+state.kindness*25+Math.max(0,100-state.tension)*2+(win?270:0)+(supported?90:0)+(brilliant?230:0)+solvedConnections().length*90-(ending==='timeout'?150:0));state.score+=earned;
- state.history.push({chapter:state.chapter,guess:ending,win,supported,evidenceId,brilliant,earned,links:solvedConnections().length,clues:state.clues.length,tension:state.tension});
+ state.history.push({chapter:state.chapter,guess:ending,win,supported,evidenceId,brilliant,earned,accusedResident:fallout?.resident||null,links:solvedConnections().length,clues:state.clues.length,tension:state.tension});
  addLog(win?'Дело раскрыто. Жильцы благодарят тебя за помощь.':'Дело завершено, но все ли тайны удалось раскрыть?',win?'🏆':'📜');render()}
 function showEnding(){if(!state.closed)return;const h=state.history[state.history.length-1],c=current(),last=state.chapter===cases.length-1;
  const title=h.brilliant?'Блестящее расследование!':h.win?'Дело раскрыто!':h.guess==='timeout'?'Время вышло':h.guess==='panic'?'Дом взбунтовался':'Ложная версия';
  const endingText=h.win?`${c.reveal} Ты успел разобраться и сохранить доверие соседей.`:`Твоя версия не выдержала проверки. В доме остались нестыковки и противоречивые свидетельства. Придётся двигаться дальше, так и не узнав всю правду об этом деле.`;
+ const falloutLine=h.accusedResident?'Твоё обвинение задело '+residents.find(p=>p.id===h.accusedResident)?.name+'. В следующих делах доверие этого жильца будет ниже.':'';
  const conclusion=last?`<div class="clue"><b>КАМПАНИЯ ПРОЙДЕНА · ${state.score} ОЧКОВ</b><p>Разгадано дел: ${state.history.filter(v=>v.win).length}/${cases.length} · Добрых дел: ${state.kindness}<br>${state.history.every(v=>v.win)?'🏅 Ты раскрыл главную тайну дома №13!':'История дома не завершилась идеально — попробуй другие решения.'}<br>${state.choices.filter(v=>v.action==='protect').length>=3?'Соседи доверяют тебе: дом снова стал одной семьёй.':'Секреты раскрыты, но соседям ещё предстоит научиться доверять друг другу.'}</p></div>`:'';
- openModal(`${heading(h.win?'🏆':'📜',title,`Дело ${state.chapter+1}/${cases.length} · +${h.earned} очков`)}<div class="final-score">${h.brilliant?'🌟':h.win?'🎉':'🌧'}</div><p class="sheet-copy">${endingText}</p><div class="clue"><b>Результат дела</b><p>Улики: ${h.clues}/6 · Связи: ${h.links||0}/${activeConnections().length} · ${h.supported?'Доказательство подтверждено':'Аргумент не подтверждён'} · Добрые дела: ${state.kindness}<br>Напряжение: ${h.tension}% · Начислено: ${h.earned}</p></div>${conclusion}<div class="actions">${last?actionButton('🔄 Новая кампания','Начать все пять дел сначала','again','ИГРАТЬ',false,'primary'):actionButton('➡️ Следующее дело','Продолжить историю жильцов','next','ПРОДОЛЖИТЬ',false,'primary')}</div>`);
+ openModal(`${heading(h.win?'🏆':'📜',title,`Дело ${state.chapter+1}/${cases.length} · +${h.earned} очков`)}<div class="final-score">${h.brilliant?'🌟':h.win?'🎉':'🌧'}</div><p class="sheet-copy">${endingText}</p>${falloutLine?'<p class="sheet-copy">⚠️ '+falloutLine+'</p>':''}<div class="clue"><b>Результат дела</b><p>Улики: ${h.clues}/6 · Связи: ${h.links||0}/${activeConnections().length} · ${h.supported?'Доказательство подтверждено':'Аргумент не подтверждён'} · Добрые дела: ${state.kindness}<br>Напряжение: ${h.tension}% · Начислено: ${h.earned}</p></div>${conclusion}<div class="actions">${last?actionButton('🔄 Новая кампания','Начать все пять дел сначала','again','ИГРАТЬ',false,'primary'):actionButton('➡️ Следующее дело','Продолжить историю жильцов','next','ПРОДОЛЖИТЬ',false,'primary')}</div>`);
  $('sheet').querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.action==='again'){state=makeState();state.seenTutorial=true}else{state.chapter++;state.day=1;state.hour=19;state.focus=4;state.clues=[];state.clueNotes={};state.insights=[];state.helped={};state.dailyConversations={};state.hints=0;state.closed=false;state.ending=null;state.lastAction={icon:'⌁',text:'Новое дело. Выбери квартиру и начни расследование.'};state.pendingEvent=null;state.tension=clamp(Math.round(state.tension*.45)+12,12,55);addLog(`Дело №0${state.chapter+1}: ${current().title}. Начинается новое расследование. ${chapterEcho()}`,current().icon)}closeModal();render();notify('Открыто новое дело') }));}
 function showHelp(){if(state.pendingEvent){showEvent();return}state.seenTutorial=true;save();openModal(`${heading('🏢','Добро пожаловать','Дом №13 · Пять ночных дел')}<p class="sheet-copy">Ты — ночной смотритель странного дома. В нём повторяется время 22:13, исчезает особая посылка, с чердака говорит металлический голос, а прошлое самого дома возвращается через письма и скрытую комнату №0.</p><div class="clue"><b>Как играть</b><p>1. Нажимай на квартиры и выбирай действия.<br>2. Собирай хотя бы 3 из 6 улик для каждого дела. В диалогах можно выбирать тактику; повторные беседы в тот же день не увеличивают доверие.<br>3. Если жильца нет дома, можно проверить пустую квартиру, но показания он даст после возвращения. Каждое действие стоит 1 внимание и 1 час.<br>4. Кнопка «След. час» восстанавливает 2 внимания.<br>5. Сопоставляй пары улик в досье: правильные связи дают очки, неверные усиливают напряжение. Помогай жильцам.<br>6. На доске улик выбери версию и подтверждающее доказательство до конца третьей ночи. Решение повлияет на общий счёт. Все пять дел связаны между собой и ведут к одной большой тайне.</p></div><p class="sheet-copy">Прогресс сохраняется на этом телефоне. Помогай жильцам, находи личные истории и открывай достижения. В журнале доступны подсказки и настройки звука.</p><div class="actions">${actionButton('Начать игру','Открыть дом','start','ВПЕРЁД',false,'primary')}</div>`);$('sheet').querySelector('[data-action="start"]').addEventListener('click',closeModal)}
 $('help').addEventListener('click',showHelp);$('journal').addEventListener('click',showJournal);$('theories').addEventListener('click',showTheories);$('wait').addEventListener('click',waitHour);
